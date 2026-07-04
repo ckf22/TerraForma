@@ -1,11 +1,13 @@
-#include "utility.hpp"
+#include "perlin.hpp"
 
 #include <iostream>
 
 int main(int argc, char ** argv){
-    TerraForma::Random a{};
-    for(int i = 0; i < 10; ++i){
-        std::cout << a.random_float(2,-5) << std::endl;
-    }
+    TerraForma::Perlin p{};
+    p.generate(10, 125);
+
+    for(float f = 0; f < 3; f += .15f)
+        std::cout << p[glm::vec2{f, f/4}].position.y << std::endl;
+
     return 0;
 }

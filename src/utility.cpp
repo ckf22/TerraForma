@@ -3,6 +3,7 @@
 #include <glm/ext.hpp>
 
 #include <stdio.h>
+#include <stdexcept>
 
 namespace TerraForma{
 
@@ -33,6 +34,40 @@ glm::vec2 Random::direction(){
     return {glm::cos(buffer), glm::sin(buffer)};
 }
 
+
+VertexGrid::VertexGrid(u_int32_t _dimension_length) : dimension_length{_dimension_length} {
+    this->data.resize(glm::pow(this->dimension_length,2));
+}
+
+VertexGrid::VertexGrid(const std::vector<Vertex>& _data) : data{std::move(_data)} {
+    auto root = glm::sqrt(_data.size());
+    if( static_cast<std::size_t>(root) == root )
+        this->dimension_length = static_cast<u_int32_t>(root);
+    else{
+        this->dimension_length = static_cast<u_int32_t>(root)+1;
+        this->data.resize(glm::pow(this->dimension_length,2));
+    }
+}
+
+VertexGrid::VertexGrid(const std::vector<Vertex>& _data, u_int32_t _dimension_length) : data{std::move(_data)}, dimension_length{_dimension_length} {
+    if( glm::pow(_dimension_length,2) >= this->data.size() )
+        throw std::out_of_range("");
+
+    if( glm::pow(_dimension_length,2) != this->data.size() )
+        this->data.resize( glm::pow(_dimension_length,2) );
+
+    this->dimension_length = _dimension_length;
+}
+
+VertexGrid::~VertexGrid(){}
+
+Vertex* VertexGrid::operator[](u_int32_t row){
+    return &this->data[row*this->dimension_length];
+}
+
+Vertex& VertexGrid::operator[](GridCoordinate position){
+    return this->data[(position.x*this->dimension_length)+position.y];
+}
 
 
 } // namespace TerraForma

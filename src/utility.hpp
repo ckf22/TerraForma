@@ -1,13 +1,13 @@
 #pragma once
 
 #define GLM_FORCE_RADIANS
-#include <glm/vec2.hpp>
+#include <glm/glm.hpp>
 
 #include <memory>
 #include <random>
+#include <vector>
 
 namespace TerraForma{
-
 
 class Random{
   public:
@@ -27,6 +27,30 @@ class Random{
     seed_t seed;
     u_int64_t number_count = 0;
     std::unique_ptr<std::mt19937_64> engine;
+};
+
+struct Vertex{
+    glm::vec3 position;
+    glm::vec3 color{.9f};
+    glm::vec3 normal{0,-1,0};
+};
+
+typedef glm::vec<2, u_int32_t> GridCoordinate;
+
+class VertexGrid{
+  public:
+    VertexGrid(u_int32_t _dimension_length);
+    VertexGrid(const std::vector<Vertex>& _data);
+    VertexGrid(const std::vector<Vertex>& _data, u_int32_t _dimension_length);
+    ~VertexGrid();
+
+    u_int32_t get_dimension_length() const noexcept { return dimension_length; }
+    const std::vector<Vertex>& operator()() const noexcept { return data; };
+    Vertex* operator[](u_int32_t row);
+    Vertex& operator[](GridCoordinate position);
+  private:
+    u_int32_t dimension_length;
+    std::vector<Vertex> data;
 };
 
 }
