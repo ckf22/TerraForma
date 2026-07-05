@@ -3,11 +3,11 @@
 #include <iostream>
 
 int main(int argc, char ** argv){
-    TerraForma::Perlin p{};
-    p.generate(10, 125);
+    TerraForma::Perlin perlin{};
+    auto data = perlin.generate(10, 125);
 
-    for(float f = 0; f < 3; f += .15f)
-        std::cout << p[glm::vec2{f, f/4}].position.y << std::endl;
+    for(float f = 0; f < 20; f += 1)
+        std::cout << data[f][f/2] << std::endl;
 
     return 0;
 }

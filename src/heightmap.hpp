@@ -1,0 +1,57 @@
+#pragma once
+
+#define GLM_FORCE_RADIANS
+#include <glm/vec2.hpp>
+
+#include <vector>
+
+namespace TerraForma{
+
+class HeightMap{
+  public:
+    typedef double height_t;
+    typedef std::size_t index_t;
+
+    // 'SubRow' is used to represent a row of data owned by 'HeightMap'
+    class SubRow{
+        friend class HeightMap;
+      public:
+        SubRow(height_t * _data_, index_t _length);
+        ~SubRow();
+        height_t& operator[](index_t index);
+        void * data();
+      private:
+        index_t length;
+        height_t * data_;
+    };
+    friend class SubRow;
+
+
+  public:
+    HeightMap(std::vector<height_t>& _data_, bool _automatic_resizes_ = false);
+    HeightMap(std::vector<height_t>& _data_, index_t _dimension, bool _automatic_resizes_ = false);
+    HeightMap(index_t _dimension, bool _automatic_resizes_ = false);
+    HeightMap(bool _automatic_resizes_ = false);
+    HeightMap(const HeightMap&) = default;
+    HeightMap(HeightMap&&) = default;
+    ~HeightMap();
+
+    HeightMap& operator=(std::vector<height_t>& _data_);
+    HeightMap& operator=(std::vector<height_t>&& _data_);
+    HeightMap& operator=(const HeightMap& _data_);
+    HeightMap& operator=(HeightMap&& _data_);
+
+    SubRow operator[](index_t row);
+    height_t& operator[](glm::vec<2, index_t> position);
+
+    void resize(index_t new_dimension);
+    void * data();
+  private:
+    void update_dimension();
+
+    bool automatic_resizes_ = false;
+    index_t dimension = 0; // length of one row
+    std::vector<height_t> data_; // list of rows
+};
+
+}
