@@ -15,6 +15,7 @@ class Random{
 
     Random();
     Random(seed_t seed);
+    ~Random();
 
     u_int64_t random_int();
     double random_float(double max = 1, double min = 0);

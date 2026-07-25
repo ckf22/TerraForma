@@ -4,6 +4,7 @@
 #include <glm/vec2.hpp>
 
 #include <vector>
+#include <iostream>
 
 namespace TerraForma{
 
@@ -38,14 +39,26 @@ class HeightMap{
 
     HeightMap& operator=(std::vector<height_t>& _data_);
     HeightMap& operator=(std::vector<height_t>&& _data_);
-    HeightMap& operator=(const HeightMap& _data_);
+    HeightMap& operator=(const HeightMap& _data_) = default;
     HeightMap& operator=(HeightMap&& _data_);
 
     SubRow operator[](index_t row);
     height_t& operator[](glm::vec<2, index_t> position);
 
+    index_t get_dimension() const { return this->dimension; }
     void resize(index_t new_dimension);
-    void * data();
+    void * data_ptr();
+    std::vector<height_t>& get_raw_vector();
+  
+    void print() {
+      for(index_t i = 0; i < this->data_.size(); ++i){
+        if(i != 0 && i % this->dimension == 0)
+          std::cout << '\n';
+        std::cout << this->data_[i] << ' ';
+      }
+      std::cout << std::endl;
+    }
+    void generate_image(std::string filename, double summand, double factor);
   private:
     void update_dimension();
 

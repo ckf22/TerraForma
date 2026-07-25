@@ -1,7 +1,11 @@
 #include "heightmap.hpp"
 
+#include "libs/easy-bmp.hpp"
+
+
 #include <stdexcept>
 #include <string>
+#include <string.h>
 #include <cmath>
 #include <algorithm>
 
@@ -15,7 +19,7 @@ HeightMap::SubRow::~SubRow(){
 
 HeightMap::height_t& HeightMap::SubRow::operator[](index_t index){
     if( index < 0 || index >= this->length )
-        throw std::overflow_error(std::string("Index ")+std::to_string(index)+std::string(" out of bounds. Length: ")+std::to_string(this->length));
+        throw std::out_of_range(std::string("Index ")+std::to_string(index)+std::string(" out of bounds. Length: ")+std::to_string(this->length));
 
     return this->data_[index];
 }
@@ -36,7 +40,7 @@ HeightMap::HeightMap(std::vector<height_t>& _data_, index_t _dimension, bool _au
         if( _automatic_resizes_ )
             this->update_dimension();
         else
-            throw std::overflow_error("");
+            throw std::out_of_range("");
     }
     this->data_.resize(this->dimension*this->dimension);
 }
@@ -47,17 +51,18 @@ HeightMap::HeightMap(index_t _dimension, bool _automatic_resizes_) : dimension{_
 
 HeightMap::HeightMap(bool _automatic_resizes_) : automatic_resizes_{_automatic_resizes_} {
     this->data_ = {};
+    this->dimension = 0;
 }
 
 HeightMap::~HeightMap(){}
 
 HeightMap& HeightMap::operator=(std::vector<height_t>& _data_){
-    if( !this->automatic_resizes_ && _data_.size() > this->dimension*this->dimension )
-        throw std::overflow_error("New Data's Size exceeds limits and 'automatic_resizes' is false");
+    if( this->automatic_resizes_ == false && _data_.size() > this->dimension*this->dimension )
+        throw std::out_of_range("New Data's Size exceeds limits and 'automatic_resizes' is false");
 
     this->data_ = _data_;
     
-    if( _data_.size() > this->dimension*this->dimension )
+    if( _data_.size() > this->dimension*this->dimension || this->automatic_resizes_ == true )
         this->update_dimension();        
 
     this->data_.resize(this->dimension*this->dimension);
@@ -66,15 +71,25 @@ HeightMap& HeightMap::operator=(std::vector<height_t>& _data_){
 }
 
 HeightMap& HeightMap::operator=(std::vector<height_t>&& _data_){
+    if( this->automatic_resizes_ == false && _data_.size() > this->dimension*this->dimension )
+        throw std::out_of_range("New Data's Size exceeds limits and 'automatic_resizes' is false");
+
+    this->data_ = std::move(_data_);
+
+    if( _data_.size() > this->dimension*this->dimension || this->automatic_resizes_ == true )
+        this->update_dimension();        
+
+    this->data_.resize(this->dimension*this->dimension);
+
     return *this;
 }
 
-HeightMap& HeightMap::operator=(const HeightMap& _data_){
+/*HeightMap& HeightMap::operator=(const HeightMap& _data_){
     this->data_ = _data_.data_;
     this->dimension = _data_.dimension;
 
     return *this;
-}
+}*/
 
 HeightMap& HeightMap::operator=(HeightMap&& _data_){
     this->data_ = std::move(_data_.data_);
@@ -89,16 +104,41 @@ HeightMap::SubRow HeightMap::operator[](index_t row){
 
 HeightMap::height_t& HeightMap::operator[](glm::vec<2, index_t> position){
     if( position.x >= this->dimension || position.y >= this->dimension )
-        throw std::overflow_error("Index out of bounds");
+        throw std::out_of_range("Index out of bounds");
 
     return this->data_[ (position.x * this->dimension) + position.y ];
 }
 
 void HeightMap::resize(index_t new_dimension){
+    if( new_dimension == this->dimension )
+        throw std::logic_error("Cannot resize to previous dimensions");
+
+    if(new_dimension < this->dimension){
+        std::vector<height_t> new_data(new_dimension*new_dimension);
+        for(index_t i = 0, j = 0; i < this->data_.size() && j < new_data.size(); i += this->dimension){
+            memcpy(&new_data[j], &this->data_[i], sizeof(height_t)*new_dimension);
+            j += new_dimension;
+        }
+        this->data_ = std::move(new_data);
+    }
+    else{
+        std::vector<height_t> new_data(new_dimension*new_dimension);
+        for(index_t i = 0, j = 0; i < this->data_.size() && j < new_data.size(); i += this->dimension){
+            memcpy(&new_data[j], &this->data_[i], sizeof(height_t)*this->dimension);
+            j += new_dimension;
+        }
+        this->data_ = std::move(new_data);
+    }
+
+    this->dimension = new_dimension;
 }
 
-void * HeightMap::data(){
+void * HeightMap::data_ptr(){
     return this->data_.data();
+}
+
+std::vector<HeightMap::height_t>& HeightMap::get_raw_vector(){
+    return this->data_;
 }
 
 void HeightMap::update_dimension(){
@@ -109,4 +149,32 @@ void HeightMap::update_dimension(){
         this->dimension = std::floor(root)+1;
 }
 
+void HeightMap::generate_image(std::string filename, double summand, double factor){
+    EasyBMP::Image image{static_cast<int64_t>(this->dimension), static_cast<int64_t>(this->dimension)};
+    for(int x = 0; x < this->dimension; ++x){
+        for(int y = 0; y < this->dimension; ++y){
+            auto buffer = this->operator[]({x,y});
+            buffer += summand; buffer *= factor;
+            image.SetPixel(x,y, EasyBMP::RGBColor(buffer, buffer, buffer));
+        }
+    }
+    image.Write("test.bmp");
+
 }
+
+}
+/*  // Used to test the stripe function
+#include "erosion.hpp"
+void debug(){
+    EasyBMP::Image stripes{1000,1000};
+    for(double x = 0; x < stripes.w(); ++x){
+        for(double y = 0; y < stripes.h(); ++y){
+            double v = TerraForma::Erosion::get_stripe_value({x/40, y/40}, {.rotation_vector = {1,1}});
+            v += 1; v *= 128;
+            stripes.SetPixel(x,y, EasyBMP::RGBColor(v,v,v));
+        }
+    }
+    stripes.Write("stripes.bmp");
+
+}
+*/

@@ -14,6 +14,10 @@ Random::Random(seed_t seed){
     this->engine = std::make_unique<std::mt19937_64>(seed);
 }
 
+Random::~Random(){
+    this->engine.~unique_ptr();
+}
+
 u_int64_t Random::random_int(){
     this->number_count++;
     return (*this->engine)();

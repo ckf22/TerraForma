@@ -12,7 +12,8 @@ HeightMap Perlin::generate(u_int32_t vector_dimension, u_int32_t point_dimension
     auto vectors = this->generate_directional_vectors(vector_dimension);
     HeightMap data{static_cast<HeightMap::index_t>(point_dimension)};
 
-    const float divisor = static_cast<float>(point_dimension) / static_cast<float>(vector_dimension);
+    const float divisor = static_cast<float>(point_dimension) / static_cast<float>(vector_dimension-1);
+     // -1 because the directional vectors need to be (mapped) on all sides, without this the bottom and right sides repeat patterns
     for(u_int32_t i = 0; i < point_dimension; ++i)
         for(u_int32_t j = 0; j < point_dimension; ++j)
             data[i][j] = this->generate_point(glm::vec2{i,j}/=divisor, vectors);

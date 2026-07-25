@@ -1,13 +1,13 @@
 #include "perlin.hpp"
+#include "erosion.hpp"
 
 #include <iostream>
 
 int main(int argc, char ** argv){
     TerraForma::Perlin perlin{};
-    auto data = perlin.generate(10, 125);
+    TerraForma::HeightMap data = perlin.generate(8, 1500);
+    data.generate_image("test.bmp", 1, 128);
 
-    for(float f = 0; f < 20; f += 1)
-        std::cout << data[f][f/2] << std::endl;
-
-    return 0;
+    //std::cout << TerraForma::Erosion::get_stripe_value({1.57,2}, {.pivot_point = glm::vec2{1.57,2}, .rotation_vector = glm::vec2{.10,1}}) << std::endl;
+    //
 }
