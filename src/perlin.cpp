@@ -18,6 +18,7 @@ HeightMap Perlin::generate(u_int32_t vector_dimension, u_int32_t point_dimension
         for(u_int32_t j = 0; j < point_dimension; ++j)
             data[i][j] = this->generate_point(glm::vec2{i,j}/=divisor, vectors);
 
+
     return data;
 }
 
@@ -63,6 +64,10 @@ float Perlin::generate_point(glm::vec2 relative_vector_coordinate, VectorGrid& v
 
 Perlin::Perlin(){
     this->random_device = std::make_unique<Random>();
+}
+
+Perlin::~Perlin(){
+    auto buffer = this->random_device.release();
 }
 
 }

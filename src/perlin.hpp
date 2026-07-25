@@ -8,6 +8,7 @@
 namespace TerraForma{
 struct Perlin{
     Perlin();
+    ~Perlin();
     typedef std::vector<std::vector<glm::vec2>> VectorGrid;
 
     HeightMap generate(u_int32_t vector_dimension, u_int32_t point_dimension);

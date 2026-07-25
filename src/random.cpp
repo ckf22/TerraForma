@@ -15,7 +15,6 @@ Random::Random(seed_t seed){
 }
 
 Random::~Random(){
-    this->engine.~unique_ptr();
 }
 
 u_int64_t Random::random_int(){

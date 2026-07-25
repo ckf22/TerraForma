@@ -29,6 +29,17 @@ void * HeightMap::SubRow::data(){
 }
 
 
+HeightMap::HeightMap(const HeightMap& other){
+    this->data_ = other.data_;
+    this->dimension = other.dimension;
+}
+
+HeightMap::HeightMap(HeightMap&& other){
+    this->data_ = other.data_;
+    this->dimension = other.dimension;
+}
+
+
 HeightMap::HeightMap(std::vector<height_t>& _data_, bool _automatic_resizes_) : data_{_data_}, automatic_resizes_{_automatic_resizes_} {
     this->update_dimension();
     this->data_.resize(this->dimension*this->dimension);
@@ -84,15 +95,15 @@ HeightMap& HeightMap::operator=(std::vector<height_t>&& _data_){
     return *this;
 }
 
-/*HeightMap& HeightMap::operator=(const HeightMap& _data_){
+HeightMap& HeightMap::operator=(const HeightMap& _data_){
     this->data_ = _data_.data_;
     this->dimension = _data_.dimension;
 
     return *this;
-}*/
+}
 
 HeightMap& HeightMap::operator=(HeightMap&& _data_){
-    this->data_ = std::move(_data_.data_);
+    this->data_ = _data_.data_;
     this->dimension = _data_.dimension;
 
     return *this;
@@ -152,13 +163,14 @@ void HeightMap::update_dimension(){
 void HeightMap::generate_image(std::string filename, double summand, double factor){
     EasyBMP::Image image{static_cast<int64_t>(this->dimension), static_cast<int64_t>(this->dimension)};
     for(int x = 0; x < this->dimension; ++x){
+        auto arr = this->operator[](x);
         for(int y = 0; y < this->dimension; ++y){
-            auto buffer = this->operator[]({x,y});
+            auto buffer = arr[y];
             buffer += summand; buffer *= factor;
             image.SetPixel(x,y, EasyBMP::RGBColor(buffer, buffer, buffer));
         }
     }
-    image.Write("test.bmp");
+    image.Write(filename);
 
 }
 
@@ -178,3 +190,34 @@ void debug(){
 
 }
 */
+
+// I'm testing the voronoi point generation
+#include "random.hpp"
+void TerraForma::debug(){
+    u_int32_t voronoi_dimension = 10; double erosion_scale = 100;
+    std::cout << "Vornoi dimension: " << voronoi_dimension << std::endl;
+    std::vector<std::vector<glm::vec<2,double>>> voronoi_points{voronoi_dimension};
+
+    TerraForma::Random r;
+    for(double x = 0; x < voronoi_points.size(); ++x){
+        voronoi_points[x].resize(voronoi_dimension);
+        for(double y = 0; y < voronoi_dimension; ++y){
+            voronoi_points[x][y].x = erosion_scale*(x+0.2) + r.random_float(erosion_scale*0.6);
+            voronoi_points[x][y].y = erosion_scale*(y+0.2) + r.random_float(erosion_scale*0.6);
+        }
+    }
+
+    EasyBMP::Image image{voronoi_dimension*erosion_scale, voronoi_dimension*erosion_scale};
+
+    for(int i = 1; i < voronoi_dimension; ++i){
+        image.DrawLine(i*erosion_scale, 0, i*erosion_scale, voronoi_dimension*erosion_scale-1, EasyBMP::RGBColor(150, 40, 40));
+        image.DrawLine(0, i*erosion_scale, voronoi_dimension*erosion_scale-1, i*erosion_scale, EasyBMP::RGBColor(150, 40, 40));
+    }  
+
+    for(auto& it : voronoi_points){
+        for(auto& it2 : it){
+            image.DrawCircle(it2.x, it2.y, erosion_scale/10, EasyBMP::RGBColor(40,200,40), true);
+        }
+    }
+    image.Write("test2.bmp");
+}

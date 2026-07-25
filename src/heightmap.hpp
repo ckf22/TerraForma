@@ -33,13 +33,13 @@ class HeightMap{
     HeightMap(std::vector<height_t>& _data_, index_t _dimension, bool _automatic_resizes_ = false);
     HeightMap(index_t _dimension, bool _automatic_resizes_ = false);
     HeightMap(bool _automatic_resizes_ = false);
-    HeightMap(const HeightMap&) = default;
-    HeightMap(HeightMap&&) = default;
+    HeightMap(const HeightMap&);
+    HeightMap(HeightMap&&);
     ~HeightMap();
 
     HeightMap& operator=(std::vector<height_t>& _data_);
     HeightMap& operator=(std::vector<height_t>&& _data_);
-    HeightMap& operator=(const HeightMap& _data_) = default;
+    HeightMap& operator=(const HeightMap& _data_);
     HeightMap& operator=(HeightMap&& _data_);
 
     SubRow operator[](index_t row);
@@ -66,5 +66,7 @@ class HeightMap{
     index_t dimension = 0; // length of one row
     std::vector<height_t> data_; // list of rows
 };
+
+void debug();
 
 }
