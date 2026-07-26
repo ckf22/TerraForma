@@ -39,7 +39,8 @@ value_t get_erosion_strength_from_slope(value_t gradient){
     // this function will apply an erosion of 0 at gradient 0, something near 1 at gradient 1
     // i multiply the square root of x with a function (0/0):gradient=0 that asymptotically approaches 1
 
-    return std::sqrt(gradient) * ((value_t)0.5 - ( (1-(gradient*gradient*40)) / (2+(gradient*gradient*80)) ));
+    //return std::sqrt(gradient) * ((value_t)0.5 - ( (1-(gradient*gradient*40)) / (2+(gradient*gradient*80)) ));
+    return (double)1-glm::pow(1-gradient,2);
 }
 
 // 'cell_size' is to used as the dimension(amount of data points) of the square one voronoi point can spawn in
@@ -77,6 +78,63 @@ myvec2 find_closest_voronoi(index_t x, index_t y, value_t cell_size, std::vector
     return *ret;
 }
 
+inline constexpr const value_t get_point_influence(const value_t distance, const value_t influence_radius) noexcept {
+    return glm::max(   glm::pow(  1 - ( glm::pow(distance,2) / glm::pow(influence_radius,2) ),  3  ),   (value_t)0   );
+}
+
+value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t frequency, value_t frequency_offset, value_t cell_size, value_t frequency_modifier, std::vector<std::vector<myvec2>>& points){
+    // Cell cordinates
+    double xd = static_cast<double>(x); // d stands for double
+    double yd = static_cast<double>(y); // in global space
+    index_t x_idx = std::floor(xd/cell_size);  // idx stands for index; these variables will be used to index into voronoi points
+    index_t y_idx = std::floor(yd/cell_size);  // index space
+
+
+    value_t result = 0;
+
+    // i use the square root of the distance to multiply the stripe value with,
+    // this keeps the sum of the applied factors, for the result to be divided by
+    value_t total_applied_multipliers = 0;
+
+    // The relative indexes -2 -1 0 1 2 are checked, because in edge cases a point might belong to the point two squares away
+    for(index_t x1 = std::max(0L, x_idx-2); x1 <= x_idx+2 && x1 < points.size(); ++x1){
+        for(index_t y1 = std::max(0L, y_idx-2); y1 <= y_idx+2 && y1 < points[x1].size(); ++y1){
+            value_t distance_buffer = glm::distance(points[x1][y1], {xd,yd});
+            myvec2 voronoi = points[x1][y1];
+
+            // 'cell_size * 2' is the distance a neighbouring voronoi point could be away
+            value_t point_influence = get_point_influence(distance_buffer, cell_size*2);
+
+            total_applied_multipliers += point_influence;
+
+            result += get_stripe_value({xd,yd}, {.pivot_point = voronoi, .rotation_vector = gradient, 
+                .frequency = frequency, .frequency_offset = (voronoi.x * frequency_modifier / cell_size)+glm::half_pi<value_t>(), .amplitude = 1}) * point_influence; 
+        }
+    }
+
+    return result / total_applied_multipliers;
+}
+
+
+myvec2 determine_gradient_vector(index_t x, index_t y, HeightMap& heightmap){
+    if( x < 0 || y < 0 || x >= heightmap.get_dimension() || y >= heightmap.get_dimension() || heightmap.get_dimension() < 2)
+        throw std::out_of_range("Illegal HeightMap coordinates");
+
+    myvec2 ret{};
+    if( x > 0 )
+        ret.x = heightmap[{x,y}]-heightmap[{x-1,y}];
+    else
+        ret.x = heightmap[{x+1,y}]-heightmap[{x,y}];
+
+    if( y > 0 )
+        ret.y = heightmap[{x,y}]-heightmap[{x,y-1}];
+    else
+        ret.y = heightmap[{x,y+1}]-heightmap[{x,y}];
+
+    return ret;
+}
+
+
 HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosion_strength){
 
     // Generate Voronoi cells
@@ -85,11 +143,12 @@ HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosio
     std::vector<std::vector<myvec2>> voronoi_points{voronoi_dimension};
 
     Random r;
+    value_t spawn_area = 0.9;
     for(index_t x = 0; x < voronoi_points.size(); ++x){
         voronoi_points[x].resize(voronoi_dimension);
         for(index_t y = 0; y < voronoi_dimension; ++y){
-            voronoi_points[x][y].x = erosion_scale*(x+0.05) + r.random_float(erosion_scale*0.9);
-            voronoi_points[x][y].y = erosion_scale*(y+0.05) + r.random_float(erosion_scale*0.9);
+            voronoi_points[x][y].x = erosion_scale*(x+(1-spawn_area)/2) + r.random_float(erosion_scale*spawn_area);
+            voronoi_points[x][y].y = erosion_scale*(y+(1-spawn_area)/2) + r.random_float(erosion_scale*spawn_area);
         }
     }
 
@@ -97,8 +156,8 @@ HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosio
     HeightMap new_terrain = terrain;
 
     // iterate through the points and figure out their stripe value
-    for(index_t x = 0; x < terrain.get_dimension()-1; ++x){
-        for(index_t y = 0; y < terrain.get_dimension()-1; ++y){
+    for(index_t x = 0; x < terrain.get_dimension(); ++x){
+        for(index_t y = 0; y < terrain.get_dimension(); ++y){
             auto cords = find_closest_voronoi(x,y, erosion_scale, voronoi_points);
 
             value_t buffer = get_stripe_value({x,y}, 
@@ -107,7 +166,14 @@ HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosio
                  .frequency = 5/erosion_scale, .frequency_offset = (cords.x * 5 / erosion_scale)+glm::half_pi<value_t>(), .amplitude = 1}
             );
 
-            new_terrain[{x,y}] += buffer*8*get_erosion_strength_from_slope(glm::length(myvec2{ terrain[{x+1,y}]-terrain[{x,y}], terrain[{x,y+1}]-terrain[{x,y}] })*12 );
+            //new_terrain[{x,y}] = buffer;//*2*get_erosion_strength_from_slope(glm::length(myvec2{ terrain[{x+1,y}]-terrain[{x,y}], terrain[{x,y+1}]-terrain[{x,y}] })*8 );
+            new_terrain[{x,y}] += get_blended_result(
+                x,y,
+                determine_gradient_vector(x,y, terrain),
+                5/erosion_scale, (cords.x * 5 / erosion_scale)+glm::half_pi<value_t>(),
+                erosion_scale, 5,
+                voronoi_points
+            ) * 0.4;
         }
     }
 

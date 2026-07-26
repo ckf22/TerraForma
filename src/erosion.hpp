@@ -47,6 +47,9 @@ namespace Erosion{
         // this will be divided by the voronoi cell size to be multiplied with the final input to the sine function
         // and will therefore determine the stripe thickness and density
         value_t stripe_frequency_modifier = 6;
+
+        // this determines the dimensions of a square centered in the middle of the respective cell
+        value_t voronoi_point_spawn_area = 0.9;
     };
 
     // 'erosion_scale' assumes the distance between two neighbouring values in the heightmap to be 1
