@@ -14,6 +14,8 @@ namespace Erosion{
     typedef double value_t;
     typedef glm::vec<2, value_t> myvec2;
     typedef long index_t;
+
+
     struct StripeInfo{
         static constexpr myvec2 unrotated_stripe_direction{0,1};
         // the stripe will be rotated around this point
@@ -31,6 +33,21 @@ namespace Erosion{
     };
 
     value_t get_stripe_value(myvec2 position, const StripeInfo& stripe_info = StripeInfo{});
+
+
+    struct ErosionInfo{
+        // distance between two neighbouring points in the HeightMap
+        value_t horizontal_scale = 1;
+
+        value_t terrain_feature_size = 200;
+
+        // Amount of voronoi cells within the dimensions of a terrain feature
+        value_t erosion_scale = 5;
+
+        // this will be divided by the voronoi cell size to be multiplied with the final input to the sine function
+        // and will therefore determine the stripe thickness and density
+        value_t stripe_frequency_modifier = 6;
+    };
 
     // 'erosion_scale' assumes the distance between two neighbouring values in the heightmap to be 1
     HeightMap apply_erosion(HeightMap& base_terrain, value_t erosion_scale, value_t erosion_strength, u_int32_t octave_count);
