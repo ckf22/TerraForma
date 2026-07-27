@@ -53,7 +53,7 @@ namespace Erosion{
     };
 
     // 'erosion_scale' assumes the distance between two neighbouring values in the heightmap to be 1
-    HeightMap apply_erosion(HeightMap& base_terrain, value_t erosion_scale, value_t erosion_strength, u_int32_t octave_count);
+    HeightMap apply_erosion(HeightMap& base_terrain, value_t erosion_scale, value_t erosion_strength, value_t octave_denominator, u_int32_t octave_count);
 
     HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosion_strength);
 

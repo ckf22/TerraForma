@@ -7,7 +7,7 @@ int main(int argc, char ** argv){
     try{
         TerraForma::Perlin perlin{};
         TerraForma::HeightMap data{perlin.generate(4, 800)};
-        data = TerraForma::Erosion::apply_erosion(data, 70, 1, 1);
+        data = TerraForma::Erosion::apply_erosion(data, 70, 0.35, 2, 4);
         data.generate_image("test.bmp", 1, 128);
         //TerraForma::debug();
     } catch(std::exception& e){
