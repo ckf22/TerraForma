@@ -10,10 +10,14 @@ namespace TerraForma::Erosion{
 
 value_t get_stripe_value(myvec2 position, const StripeInfo& stripe_info){
     position -= stripe_info.pivot_point;
-
-    myvec2 normalized{glm::normalize(stripe_info.rotation_vector)};
+    
+    value_t grad_length = glm::length(stripe_info.rotation_vector);
+    myvec2 normalized = (grad_length > 0.00001) ? 
+                        (stripe_info.rotation_vector / grad_length) : 
+                        myvec2{1.0, 0.0};
+//    myvec2 normalized{glm::normalize(stripe_info.rotation_vector)};
     double rotated_x = position.x * normalized.y - position.y * normalized.x;
-    rotated_x += stripe_info.pivot_point.x;
+    //rotated_x += stripe_info.pivot_point.x;
 
     rotated_x = glm::sin((rotated_x * stripe_info.frequency) + stripe_info.frequency_offset);
     
@@ -29,7 +33,7 @@ HeightMap apply_erosion(HeightMap& base_terrain, ErosionInfo info){
     value_t erosion_scale = info.terrain_feature_size / info.erosion_scale;
 
     for(u_int32_t i = 0; i < info.octave_count; ++i){
-        std::cout << "Octave " << i << ": Erosion Scale: " << erosion_scale << "; Erosion Strength: " << info.erosion_strength << ";" << std::endl;
+        std::cout << "Octave " << i+1 << ": Erosion Scale: " << erosion_scale << "; Erosion Strength: " << info.erosion_strength << ";" << std::endl;
         new_terrain = apply_octave(new_terrain, erosion_scale, info.erosion_strength, info.stripe_frequency_modifier, info.voronoi_point_spawn_area);
 
         info.erosion_strength *= info.octave_factor;
@@ -90,12 +94,21 @@ inline constexpr const value_t get_point_influence(const value_t distance_square
     return glm::max(   glm::pow(  1 - ( distance_squared / influence_radius_squared ),  3  ),   (value_t)0   );
 }
 
-value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t frequency, value_t cell_size, value_t frequency_modifier, std::vector<std::vector<myvec2>>& points){
+value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t frequency, value_t cell_size, std::vector<std::vector<myvec2>>& points){
     // Cell cordinates
     double xd = static_cast<double>(x); // d stands for double
     double yd = static_cast<double>(y); // in global space
     index_t x_idx = std::floor(xd/cell_size);  // idx stands for index; these variables will be used to index into voronoi points
     index_t y_idx = std::floor(yd/cell_size);  // index space
+
+
+    constexpr const value_t min_expected_slope = 0.00001, max_expected_slope = 1;
+
+    value_t slope_length = glm::length(gradient);// + min_expected_slope;
+    
+    value_t slope_weight = glm::clamp((slope_length - min_expected_slope) / (max_expected_slope - min_expected_slope), 0.0, 1.0);
+    value_t freq_multiplier = glm::mix(0.15, 1.85, slope_weight);
+    value_t adjusted_frequency = frequency * freq_multiplier;
 
 
     value_t result = 0;
@@ -118,7 +131,7 @@ value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t freque
             total_applied_multipliers += point_influence;
 
             result += get_stripe_value({xd,yd}, {.pivot_point = voronoi, .rotation_vector = gradient, 
-                .frequency = frequency, .frequency_offset = (voronoi.x * frequency_modifier / cell_size)+glm::half_pi<value_t>(), .amplitude = 1}) * point_influence; 
+                .frequency = adjusted_frequency, .amplitude = 1}) * point_influence; 
         }
     }
 
@@ -165,13 +178,14 @@ HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosio
     HeightMap new_terrain = terrain;
 
     // iterate through the points and figure out their stripe value
-    for(index_t x = 0; x < terrain.get_dimension()-1; ++x){
-        for(index_t y = 0; y < terrain.get_dimension()-1; ++y){
+    for(index_t x = 0; x < terrain.get_dimension(); ++x){
+        for(index_t y = 0; y < terrain.get_dimension(); ++y){
+            myvec2 gradient = determine_gradient_vector(x,y, terrain);
             new_terrain[{x,y}] += get_blended_result(
                 x,y,
-                determine_gradient_vector(x,y, terrain),
+                gradient,
                 frequency_factor/erosion_scale,
-                erosion_scale, frequency_factor,
+                erosion_scale,
                 voronoi_points
             ) * erosion_strength;
         }

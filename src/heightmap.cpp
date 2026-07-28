@@ -161,6 +161,20 @@ void HeightMap::update_dimension(){
 }
 
 void HeightMap::generate_image(std::string filename, double summand, double factor){
+    double max = 0; double min = std::numeric_limits<double>::max();
+    for(int x = 0; x < this->dimension; ++x){
+        for(int y = 0; y < this->dimension; ++y){
+            auto buffer = this->operator[]({x,y});
+            if(buffer > max)
+                max = buffer;
+            if(buffer < min)
+                min = buffer;
+        }
+    }
+    summand = -min;
+    factor = static_cast<double>(256)/(max-min);
+
+
     EasyBMP::Image image{static_cast<int64_t>(this->dimension), static_cast<int64_t>(this->dimension)};
     for(int x = 0; x < this->dimension; ++x){
         auto arr = this->operator[](x);
