@@ -102,7 +102,7 @@ value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t freque
     index_t y_idx = std::floor(yd/cell_size);  // index space
 
 
-    constexpr const value_t min_expected_slope = 0.00001, max_expected_slope = 1;
+    constexpr const value_t min_expected_slope = 0.000005, max_expected_slope = 1;
 
     value_t slope_length = glm::length(gradient);// + min_expected_slope;
     

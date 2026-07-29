@@ -59,6 +59,7 @@ class HeightMap{
       std::cout << std::endl;
     }
     void generate_image(std::string filename, double summand, double factor);
+    void write_to_file(std::string filename, double horizontal_scale = 1.0, double vertical_scale = 1.0);
   private:
     void update_dimension();
 
@@ -66,7 +67,5 @@ class HeightMap{
     index_t dimension = 0; // length of one row
     std::vector<height_t> data_; // list of rows
 };
-
-void debug();
 
 }

@@ -2,12 +2,15 @@
 
 #include "libs/easy-bmp.hpp"
 
+#define GLM_FORCE_RADIANS
+#include "glm/glm.hpp"
 
 #include <stdexcept>
 #include <string>
 #include <string.h>
 #include <cmath>
 #include <algorithm>
+#include <fstream>
 
 namespace TerraForma{
 
@@ -115,7 +118,7 @@ HeightMap::SubRow HeightMap::operator[](index_t row){
 
 HeightMap::height_t& HeightMap::operator[](glm::vec<2, index_t> position){
     if( position.x >= this->dimension || position.y >= this->dimension )
-        throw std::out_of_range("Index out of bounds");
+        throw std::out_of_range("Index out of bounds: HeightMap::height_t& HeightMap::operator[](glm::vec<2, index_t> position)");
 
     return this->data_[ (position.x * this->dimension) + position.y ];
 }
@@ -188,6 +191,66 @@ void HeightMap::generate_image(std::string filename, double summand, double fact
 
 }
 
+const constexpr inline HeightMap::index_t index(const HeightMap::index_t x, const HeightMap::index_t y, const HeightMap::index_t dimension){
+    return (x*dimension)+y+1;
+}
+
+void HeightMap::write_to_file(std::string filename, double horizontal_scale, double vertical_scale){
+    std::ofstream file{filename};
+
+    if(!file.is_open())
+        throw std::runtime_error(std::string("Failed to open file: '"+filename+'\''));
+
+    file << "1.0." << std::endl;
+    for(index_t x = 0; x < this->dimension; ++x)
+        for(index_t y = 0; y < this->dimension; ++y)
+            file << "v " << horizontal_scale * x << ' ' << horizontal_scale * y << ' ' << vertical_scale * this->operator[]({x,y}) << '\n';
+
+    file.flush();
+
+    for(index_t x = 0; x < this->dimension; ++x) {
+        for(index_t y = 0; y < this->dimension; ++y) {
+            long x0 = std::max(0L, (long)x - 1);
+            long x1 = std::min(this->dimension - 1, x + 1);
+            long y0 = std::max(0L, (long)(y) - 1);
+            long y1 = std::min(this->dimension - 1, y + 1);
+    
+            double hL = this->operator[]({x0, y});
+            double hR = this->operator[]({x1, y});
+            double hB = this->operator[]({x, y0});
+            double hT = this->operator[]({x, y1});
+    
+            glm::vec3 tanX{(double)(x1 - x0), 0.0, hR - hL};
+            glm::vec3 tanY{0.0, (double)(y1 - y0), hT - hB};
+    
+            glm::vec3 normal = glm::normalize(glm::cross(tanX, tanY));
+    
+            file << "vn " << normal.x << ' ' << normal.y << ' ' << normal.z << '\n';
+        }
+    }
+
+    file.flush();
+    for(index_t x = 0; x < this->dimension - 1; ++x){
+        for(index_t y = 0; y < this->dimension - 1; ++y ){
+            index_t v0 = index(x, y, this->dimension);
+            index_t v1 = index(x, y + 1, this->dimension);
+            index_t v2 = index(x + 1, y, this->dimension);
+            index_t v3 = index(x + 1, y + 1, this->dimension);
+
+            file << "f " << v0 << "//" << v0 << " " 
+                         << v1 << "//" << v1 << " " 
+                         << v2 << "//" << v2 << '\n';
+
+            file << "f " << v2 << "//" << v2 << " " 
+                         << v1 << "//" << v1 << " " 
+                         << v3 << "//" << v3 << '\n';
+        }
+    }
+
+    file.close();
+}
+
+
 }
 /*  // Used to test the stripe function
 #include "erosion.hpp"
@@ -205,33 +268,3 @@ void debug(){
 }
 */
 
-// I'm testing the voronoi point generation
-#include "random.hpp"
-void TerraForma::debug(){
-    u_int32_t voronoi_dimension = 10; double erosion_scale = 100;
-    std::cout << "Vornoi dimension: " << voronoi_dimension << std::endl;
-    std::vector<std::vector<glm::vec<2,double>>> voronoi_points{voronoi_dimension};
-
-    TerraForma::Random r;
-    for(double x = 0; x < voronoi_points.size(); ++x){
-        voronoi_points[x].resize(voronoi_dimension);
-        for(double y = 0; y < voronoi_dimension; ++y){
-            voronoi_points[x][y].x = erosion_scale*(x+0.2) + r.random_float(erosion_scale*0.6);
-            voronoi_points[x][y].y = erosion_scale*(y+0.2) + r.random_float(erosion_scale*0.6);
-        }
-    }
-
-    EasyBMP::Image image{voronoi_dimension*erosion_scale, voronoi_dimension*erosion_scale};
-
-    for(int i = 1; i < voronoi_dimension; ++i){
-        image.DrawLine(i*erosion_scale, 0, i*erosion_scale, voronoi_dimension*erosion_scale-1, EasyBMP::RGBColor(150, 40, 40));
-        image.DrawLine(0, i*erosion_scale, voronoi_dimension*erosion_scale-1, i*erosion_scale, EasyBMP::RGBColor(150, 40, 40));
-    }  
-
-    for(auto& it : voronoi_points){
-        for(auto& it2 : it){
-            image.DrawCircle(it2.x, it2.y, erosion_scale/10, EasyBMP::RGBColor(40,200,40), true);
-        }
-    }
-    image.Write("test2.bmp");
-}
