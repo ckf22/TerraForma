@@ -19,7 +19,7 @@ value_t get_stripe_value(myvec2 position, const StripeInfo& stripe_info){
     double rotated_x = position.x * normalized.y - position.y * normalized.x;
     //rotated_x += stripe_info.pivot_point.x;
 
-    rotated_x = glm::sin((rotated_x * stripe_info.frequency) + stripe_info.frequency_offset);
+    rotated_x = glm::sin((rotated_x * stripe_info.frequency) + stripe_info.frequency_offset + glm::half_pi<value_t>());
     
     return (rotated_x * stripe_info.amplitude) + stripe_info.amplitude_offset;
 }
@@ -28,13 +28,13 @@ value_t get_stripe_value(myvec2 position, const StripeInfo& stripe_info){
 HeightMap apply_erosion(HeightMap& base_terrain, ErosionInfo info){
     HeightMap new_terrain = base_terrain;
 
-    info.terrain_feature_size *= info.horizontal_scale;
+    info.terrain_feature_size /= info.horizontal_scale;
 
     value_t erosion_scale = info.terrain_feature_size / info.erosion_scale;
 
     for(u_int32_t i = 0; i < info.octave_count; ++i){
         std::cout << "Octave " << i+1 << ": Erosion Scale: " << erosion_scale << "; Erosion Strength: " << info.erosion_strength << ";" << std::endl;
-        new_terrain = apply_octave(new_terrain, erosion_scale, info.erosion_strength, info.stripe_frequency_modifier, info.voronoi_point_spawn_area);
+        new_terrain = apply_octave(new_terrain, erosion_scale, info.erosion_strength, info.stripe_frequency_modifier, info.voronoi_point_spawn_area, info.horizontal_scale);
 
         info.erosion_strength *= info.octave_factor;
         erosion_scale *= info.octave_factor;
@@ -43,11 +43,12 @@ HeightMap apply_erosion(HeightMap& base_terrain, ErosionInfo info){
 }
 
 value_t get_erosion_strength_from_slope(value_t gradient){
-    if( gradient < 0 )
-        gradient = -gradient;
+    if( gradient < 0 ){
+        gradient = 0;
+    }
 
     if(gradient > 1)
-        return 1;
+        gradient = 1;
 
     if( gradient == 0 )
         return 0;
@@ -56,7 +57,7 @@ value_t get_erosion_strength_from_slope(value_t gradient){
     // i multiply the square root of x with a function (0/0):gradient=0 that asymptotically approaches 1
 
     //return std::sqrt(gradient) * ((value_t)0.5 - ( (1-(gradient*gradient*40)) / (2+(gradient*gradient*80)) ));
-    return (double)1-glm::pow(1-gradient,2);
+    return (value_t)1.0-glm::pow((value_t)1.0-gradient,2);
 }
 
 // 'cell_size' is to used as the dimension(amount of data points) of the square one voronoi point can spawn in
@@ -94,22 +95,12 @@ inline constexpr const value_t get_point_influence(const value_t distance_square
     return glm::max(   glm::pow(  1 - ( distance_squared / influence_radius_squared ),  3  ),   (value_t)0   );
 }
 
-value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t frequency, value_t cell_size, std::vector<std::vector<myvec2>>& points){
+value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t frequency, value_t cell_size, value_t terrain_height, std::vector<std::vector<myvec2>>& points){
     // Cell cordinates
     double xd = static_cast<double>(x); // d stands for double
     double yd = static_cast<double>(y); // in global space
     index_t x_idx = std::floor(xd/cell_size);  // idx stands for index; these variables will be used to index into voronoi points
     index_t y_idx = std::floor(yd/cell_size);  // index space
-
-
-    constexpr const value_t min_expected_slope = 0.000005, max_expected_slope = 1;
-
-    value_t slope_length = glm::length(gradient);// + min_expected_slope;
-    
-    value_t slope_weight = glm::clamp((slope_length - min_expected_slope) / (max_expected_slope - min_expected_slope), 0.0, 1.0);
-    value_t freq_multiplier = glm::mix(0.15, 1.85, slope_weight);
-    value_t adjusted_frequency = frequency * freq_multiplier;
-
 
     value_t result = 0;
 
@@ -131,11 +122,21 @@ value_t get_blended_result(index_t x, index_t y, myvec2 gradient, value_t freque
             total_applied_multipliers += point_influence;
 
             result += get_stripe_value({xd,yd}, {.pivot_point = voronoi, .rotation_vector = gradient, 
-                .frequency = adjusted_frequency, .amplitude = 1}) * point_influence; 
+                .frequency = frequency, .amplitude = 1}) * point_influence; 
         }
     }
 
-    return result / total_applied_multipliers;
+    result /= total_applied_multipliers;
+
+    terrain_height = glm::clamp(terrain_height, 0.0, 1.0);
+    value_t influence = terrain_height;
+    value_t sign = ((value_t)std::signbit(terrain_height))*2 - 1;
+    value_t fade_target = glm::mix( 0.0, fade_target, glm::pow(glm::abs(terrain_height),2) );
+    result = glm::mix(result, sign, influence);
+
+    result *= get_erosion_strength_from_slope(glm::length(gradient));
+
+    return result;
 }
 
 
@@ -158,7 +159,8 @@ myvec2 determine_gradient_vector(index_t x, index_t y, HeightMap& heightmap){
 }
 
 
-HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosion_strength, value_t frequency_factor, value_t voronoi_spawn_area){
+HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosion_strength,
+    value_t frequency_factor, value_t voronoi_spawn_area, value_t horizontal_scale){
 
     // Generate Voronoi cells
     u_int32_t voronoi_dimension = ((float)terrain.get_dimension()/erosion_scale);
@@ -175,6 +177,8 @@ HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosio
     }
 
 
+    value_t min = -1.0, max = 1.0;
+
     HeightMap new_terrain = terrain;
 
     // iterate through the points and figure out their stripe value
@@ -183,13 +187,20 @@ HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosio
             myvec2 gradient = determine_gradient_vector(x,y, terrain);
             new_terrain[{x,y}] += get_blended_result(
                 x,y,
-                gradient,
+                gradient / horizontal_scale,
                 frequency_factor/erosion_scale,
-                erosion_scale,
+                erosion_scale, new_terrain[{x,y}],
                 voronoi_points
             ) * erosion_strength;
+
+            auto buffer = new_terrain[{x,y}];
+            if(buffer < min)
+                min = buffer;
+            if(buffer > max)
+                max = buffer; 
         }
     }
+    std::cout << "Min Value: " << min << "; Max Value: " << max << ';' << std::endl; 
 
     return new_terrain;
 }

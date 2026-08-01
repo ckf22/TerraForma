@@ -66,7 +66,7 @@ namespace Erosion{
     // 'erosion_scale' assumes the distance between two neighbouring values in the heightmap to be 1
     HeightMap apply_erosion(HeightMap& base_terrain, ErosionInfo info = ErosionInfo{});
 
-    HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosion_strength, value_t frequency_factor, value_t voronoi_spawn_area);
+    HeightMap apply_octave(HeightMap& terrain, value_t erosion_scale, value_t erosion_strength, value_t frequency_factor, value_t voronoi_spawn_area, value_t horizontal_scale);
 
 }
 

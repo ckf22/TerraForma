@@ -208,9 +208,9 @@ void HeightMap::write_to_file(std::string filename, double horizontal_scale, dou
 
     file.flush();
 
-    for(index_t x = 0; x < this->dimension; ++x) {
+    /*for(index_t x = 0; x < this->dimension; ++x) {
         for(index_t y = 0; y < this->dimension; ++y) {
-            long x0 = std::max(0L, (long)x - 1);
+            long x0 = std::max(0L, (long)(x) - 1);
             long x1 = std::min(this->dimension - 1, x + 1);
             long y0 = std::max(0L, (long)(y) - 1);
             long y1 = std::min(this->dimension - 1, y + 1);
@@ -227,7 +227,7 @@ void HeightMap::write_to_file(std::string filename, double horizontal_scale, dou
     
             file << "vn " << normal.x << ' ' << normal.y << ' ' << normal.z << '\n';
         }
-    }
+    }*/
 
     file.flush();
     for(index_t x = 0; x < this->dimension - 1; ++x){
@@ -237,13 +237,17 @@ void HeightMap::write_to_file(std::string filename, double horizontal_scale, dou
             index_t v2 = index(x + 1, y, this->dimension);
             index_t v3 = index(x + 1, y + 1, this->dimension);
 
-            file << "f " << v0 << "//" << v0 << " " 
-                         << v1 << "//" << v1 << " " 
-                         << v2 << "//" << v2 << '\n';
+            //file << "f " << v0 << "//" << v0 << " " 
+            //             << v1 << "//" << v1 << " " 
+            //             << v2 << "//" << v2 << '\n';
 
-            file << "f " << v2 << "//" << v2 << " " 
-                         << v1 << "//" << v1 << " " 
-                         << v3 << "//" << v3 << '\n';
+            //file << "f " << v2 << "//" << v2 << " " 
+            //             << v1 << "//" << v1 << " " 
+            //             << v3 << "//" << v3 << '\n';
+
+            file << "f " << v0 << " " << v1 << " " << v2 << '\n';
+            file << "f " << v2 << " " << v1 << " " << v3 << '\n';
+
         }
     }
 
